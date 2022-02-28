@@ -1,7 +1,0 @@
-cd cython
-"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat"
-cythonize -3 -i ..\VexXCore.py ..\VexMicroPC.py ..\mpcap.py ..\u5angaPC.py
-pyinstaller.exe VexX.spec
-
-#on linux
-cythonize -3 -i primes.py --> will produce primes.----.so
