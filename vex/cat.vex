@@ -1,0 +1,5 @@
+#1>
+ x= { 2'd2, 1'b1}
+ ## Error: parser expected '}', received '1'.
+ x= {1'h1, 2'd2, 1'b1}
+ x= {1'd1, 2'd2, 8{1'b1}}

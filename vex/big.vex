@@ -1,0 +1,6 @@
+a=3**100
+nxpa = nxp(a)
+nxpa/a
+nxpa%a
+3**%[nxpa]100000
+1/%[nxpa]100000

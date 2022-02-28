@@ -1,0 +1,9 @@
+#1>
+ :run run.vex
+ ## Info: executing :run run.vex
+#2>
+ :run run.vex
+ ## Info: executing :run run.vex
+#3>
+ :run ./run.vex
+ ## Info: executing :run ./run.vex

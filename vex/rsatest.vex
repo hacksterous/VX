@@ -1,0 +1,5 @@
+:set nns
+mtxt = 195138934612 #message
+ctxt = mtxt**%[n] enc #encrypted ciphertext
+ptxt = ctxt**%[n] dec #decrypted message, equals message
+TEST_PASSED = (mtxt == ptxt)

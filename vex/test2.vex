@@ -1,0 +1,28 @@
+#1>
+ :run D:\My Stuff\Git\VexX\cat3.vex
+#2>
+ qw = {1'd1, {8{1'b1}}}
+ ##  ans = 9'd511
+#3>
+ qw
+ ##  ans = 9'd511
+#4>
+ we = {1, {8{1'b1}}}
+ ##  ans = 40'd511
+ ## Warning: Width unspecified.
+#5>
+ we
+ ##  ans = 40'd511
+#6>
+ er = {1, {8{1}}}
+ ##  ans = 288'd115792089264276142096998726540203105341796590047689226336812880642240023625729
+ ## Warning: Width unspecified.
+#7>
+ er
+ ##  ans = 288'd115792089264276142096998726540203105341796590047689226336812880642240023625729
+#8>
+ :write d:\my stuff\git\vexx\test2.vex
+ ## Info: doing command :write d:\my stuff\git\vexx\test2.vex
+#9>
+ :write d:\my stuff\git\vexx\test2.vex
+ ## Error: File already exists. Write cancelled.

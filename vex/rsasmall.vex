@@ -1,0 +1,13 @@
+:set nns
+num = 11
+p = nxp(num)
+num = 17
+q = nxp(num)
+n = p * q
+phi = (p-1)*(q-1)
+enc = 101
+#make sure phi and enc are relatively prime
+WONTWORK = (p == q)
+WONTWORKASWELL = ((phi % enc) == 0)
+dec = 1/%[phi] enc
+

@@ -1,0 +1,6 @@
+1*(-[5.0e-1]) #gives wrong result ans = -[5.0e-2]
+1*(-[0.5]) #gives wrong result ans = -[5.0e-2]
+1*(-0.5) #gives wrong result ans = -0.05
+1*-0.5 #gives wrong result ans = -0.05
+1*-0.5+1 #gives wrong result ans = 0.995
+

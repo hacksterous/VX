@@ -1,0 +1,12 @@
+:unset bfa
+:unset slz
+#1>
+ x=32'h12
+ ##  ans = 
+ x
+ ##  ans = 
+ x[0]=1'd1
+ ##  ans = 
+ x
+ ##  ans = 
+ ((int(pi)*'h11)[3:0])[1:0]
