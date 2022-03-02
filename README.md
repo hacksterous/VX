@@ -5,7 +5,7 @@ VX is a calculator using the PyQt5 toolkit using a [LibBF backend](https://bella
 
 VX is in pre-alpha stage with lot of bugs.
 
-VX was developed on GNU/Linux on an amd64 machine. A shared library for BF is included (pybf.so) for use with Python3.
+VX was developed on GNU/Linux on an amd64 machine. A shared library for Python3-BF interfacing is included (pybf.so)..
 
 #### How to Use
 
