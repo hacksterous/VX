@@ -1,0 +1,15 @@
+:font Source Code Pro
+:fsize 18
+#:font Cascadia Code
+:set dstd
+:set wns
+m2ft = 3.281
+ft2m = 1/m2ft
+kw2hp = 1.34102
+i2cm = 2.539876
+cm2i = 1/i2cm
+hp2kw = 1/kw2hp
+##:reset
+setzone (5.5, 12.9716, 77.5946)
+:prec 15
+#:set sci

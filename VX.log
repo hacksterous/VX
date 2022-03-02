@@ -1,19 +1,13 @@
 Traceback (most recent call last):
-  File "/home/oreo/Src/python/VX/VX.py", line 4, in <module>
-    VXCore.VXCoreEntryPoint()
-  File "/home/oreo/Src/python/VX/VXCore.py", line 1611, in VXCoreEntryPoint
-    form = qVX()
-  File "/home/oreo/Src/python/VX/VXCore.py", line 368, in __init__
-    self.executeFile('.vex')
-  File "/home/oreo/Src/python/VX/VXCore.py", line 1369, in executeFile
-    self.handleInput(execCmdFromFile=True, cmdFromFile=line)
-  File "/home/oreo/Src/python/VX/VXCore.py", line 1115, in handleInput
+  File "/home/oreo/Git/VX/VXCore.py", line 975, in eventFilter
+    self.handleInput (execCmdFromFile=False, cmdFromFile=text[len(self.promptStr)+1:])
+  File "/home/oreo/Git/VX/VXCore.py", line 1144, in handleInput
     self.doInputCommand (execCmdFromFile, cmdFromFile)
-  File "/home/oreo/Src/python/VX/VXCore.py", line 1262, in doInputCommand
+  File "/home/oreo/Git/VX/VXCore.py", line 1297, in doInputCommand
     self.handleCommand(cmdList[1], execCmdFromFile=execCmdFromFile)
-  File "/home/oreo/Src/python/VX/VXCore.py", line 1205, in handleCommand
-    fontChanged = self.setFontSize (restOfCmd)
-  File "/home/oreo/Src/python/VX/VXCore.py", line 852, in setFontSize
-    self.editorText.SetFont(self.font)
-AttributeError: 'QTextEdit' object has no attribute 'SetFont'
+  File "/home/oreo/Git/VX/VXCore.py", line 1175, in handleCommand
+    self.fileQuit()
+  File "/home/oreo/Git/VX/VXCore.py", line 1618, in fileQuit
+    self.Destroy()
+AttributeError: 'qVX' object has no attribute 'Destroy'
 =========================================

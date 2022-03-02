@@ -23,9 +23,10 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication, QFileDialog, QActionGroup, QMessageBox, QFontDialog
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QFontMetrics, QFont, QFontDatabase, QColor
+from PyQt5.QtGui import QFontMetrics, QFont, QFontDatabase, QColor, QTextCharFormat
 import VXUI
 from VexMicroPC import VexMicroPC
+from VexMicroPC import pybfend
 import argparse
 import os
 import sys
@@ -273,7 +274,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 
 		self.promptColorLight = 'blue'
 		self.promptColorDark = 'white'
-		self.textInfoColorLight = '#1098ea'  #(16, 152, 234)
+		self.textInfoColorLight = '#50a8fa'  #(16, 152, 234)
 		self.textInfoColorDark = 'yellow' #(216, 252, 34)
 		self.textNormalColorLight = 'black' #(0, 0, 0)
 		self.textNormalColorDark = 'white' #(255, 255, 255)
@@ -304,7 +305,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 
 				}
 
-		self.allCommands = ':fs:fsize:del:ls:set:defw:unset:cls:reset:print:help:do:delall:exec:run:history:font:quit:runtime:precision:save:w!:write!:save!'
+		self.allCommands = ':prec:fs:fsize:del:ls:set:defw:unset:cls:reset:print:help:do:delall:exec:run:history:font:quit:runtime:precision:save:w!:write!:save!'
 
 		self.completionEntryListOrig = [
 			'pi',
@@ -337,19 +338,15 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			':write'
 			]
 
-		self.autoExpandContext = 'NONE'
+		self.autoExpandContext = 'NORMAL'
 
 		self.listOfMetaCommands = [':unset', ':reset', ':set', ':f', ':font', ':exit', ':q' , ':quit', ':help', ':run', ':r', ':s', ':write', ':exec', ':save',
 				'save!', ':s!', ':write!', ':w!', ':exec', ':save', ':precision', ':prec', ':p',
 				':ls', ':del', ':delall', ':cls', ':clear', ':runtime', '?', ':?']
 
-		self.mouseLeftClickCount = 0
-
 		self.unEnteredCommand = ''
 		self.printMaxWidth = 90
 		self.currentLineNumber = 0
-		self.mouseClicked = False
-		self.mouseClickLineNumber = 0
 		self.promptStr = "#1> "
 		# A "-1" in the size parameter instructs wxWidgets to use the default size.
 		# In this case, we select 200px width and the default height.
@@ -359,26 +356,26 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 		self.inputStr = ''
 
 		self.VX = VexMicroPC()
-		self.timer = QTimer()
 		self.setInitialFont()
 
 		if os.path.isfile('.vex'):
+			self.globalWriteDisable = True
 			#self.inputStr = ":run .vex #startup file .vex found\n"
-			#self.editorText.insertPlainText (self.inputStr)
 			self.executeFile('.vex')
-			self.writePrompt()
 			self.VX.ca = []
 			self.indexHistory = 0 #no valid command
 			self.VX.ra = []
 			self.VX.stv ['ans'] = '0'
+			self.globalWriteDisable = False
+			self.doClearAndWritePrompt()
 		else:
 			#when there is no startup script, start with a prompt
-			self.writePrompt()
+			self.writePrompt(overrideGlobalDisable=False)
 
-		self.menuClear.triggered.connect(self.doClear)
+		self.menuClear.triggered.connect(self.doClearAndWritePrompt)
 		self.menuOpen.triggered.connect(self.fileOpen)
 		self.menuSave.triggered.connect(self.fileSaveAsGUI)
-		self.menuExit.triggered.connect(self.fileOpen) #FIXME
+		self.menuExit.triggered.connect(self.fileQuit)
 		self.menuEnableNewVarRefError.triggered.connect(self.enableNewVarRefErrorHandler)
 		self.menuSuppressTickD.triggered.connect(self.suppressTickDHandler)
 		self.menuSuppressZeros.triggered.connect(self.suppressLeadingZeros)
@@ -389,10 +386,12 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 		self.menuIndianNumSeparator.triggered.connect(self.indianNumSeparator)
 		self.menuWesternNumSeparator.triggered.connect(self.westernNumSeparator)
 		self.menuShowWarnings.triggered.connect(self.showWarnings)
-		self.menuDarkTheme.triggered.connect(self.showWarnings) #FIXME
+		#self.menuDarkTheme.triggered.connect(self.showWarnings) #FIXME
 		self.menuFont.triggered.connect(self.fontSelect)
 		self.menuHelp.triggered.connect(self.showHelp)
 		self.menuAbout.triggered.connect(self.helpAbout)
+		self.checkBoxDEG.stateChanged.connect(self.bottomCheckBoxHandler)
+		self.checkBoxSCI.stateChanged.connect(self.bottomCheckBoxHandler)
 		self.editorText.installEventFilter(self)
 		self.editorText.viewport().installEventFilter(self)
 		self.editorText.setFocus()
@@ -414,7 +413,8 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 				os.remove(self.fullLockFileName)
 
 			self.inputStr = ":run " + str(fullFileName).strip()
-			self.editorText.insertPlainText (self.inputStr)
+			#self.editorText.insertPlainText (self.inputStr)
+			self.writeInfo (self.inputStr)
 			self.doInputCommand()
 
 		self.completionEntryList = self.completionEntryListOrig + list(self.VX.stv.keys())
@@ -422,19 +422,33 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 	def strpart(self, string, length):
 		return (string[0+i:length+i] for i in range(0, len(string), length))
 
-	def setTextColor (self, which, attr=None, attrColor='white'):
-		pass
-
+	def setTextColor (self, which):
+		if which == 'SET_UNSET':
+			self.editorText.setTextColor (QColor('blue'))
+		elif which == 'FONT':
+			self.editorText.setTextColor (QColor('gray'))
+		elif which == 'LS':
+			self.editorText.setTextColor (QColor('#0000f4'))
+		elif which == 'RUN_FILE':
+			self.editorText.setTextColor (QColor('orange'))
+		elif which == 'HELP':
+			self.editorText.setTextColor (QColor('orange'))
+		else: #NORMAL
+			self.editorText.setTextColor (QColor('black'))
+			
 	def writeInfo (self, text, what=3):
+		if self.globalWriteDisable == True:
+			return
 		if what == 0: #info
 			self.editorText.setTextColor (QColor(self.getThemeColors(self.lightTheme)[2]))
 		elif what == 1: #error
 			self.editorText.setTextColor (QColor(self.getThemeColors(self.lightTheme)[1]))
 		elif what == 2: #warning
 			self.editorText.setTextColor (QColor('orange'))
-		#default is normal -- 3
+	
+		#self.editorText.setTextColor (QColor(self.getThemeColors(self.lightTheme)[0]))
+		#default is normal -- 3 - use existing color
 		self.editorText.insertPlainText (text)
-		self.editorText.setTextColor (QColor(self.getThemeColors(self.lightTheme)[0]))
 
 	def writeError (self, text):
 		self.writeInfo (text, 1)
@@ -443,25 +457,37 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 		self.writeInfo (text, 2)
 
 	def writeValue (self, man, exp):
+		if self.globalWriteDisable == True:
+			return
 		self.editorText.insertPlainText (man)
-		self.editorText.insertPlainText (exp + '\n')
+		cursor = self.editorText.textCursor()
+		format = cursor.charFormat()
+		format.setVerticalAlignment(QTextCharFormat.AlignSuperScript)
+		cursor.setCharFormat(format)
+		self.editorText.setTextCursor(cursor)
+		self.editorText.insertPlainText (exp)
+		format.setVerticalAlignment(QTextCharFormat.AlignNormal)
+		cursor.setCharFormat(format)
+		self.editorText.setTextCursor(cursor)
+		self.editorText.insertPlainText ('\n')
 
-	def getWordToLeft (self):
+	def getWordToLeft (self, cursor):
 		opsList = ['+', '/', '*', '-', '&', '|', '^', '~', '!', '%', ')', '(']
-		currentPos = self.editorText.GetInsertionPoint()
-		currChar = self.editorText.GetRange (currentPos-1, currentPos)
+		currentPos = cursor.columnNumber()
+		lineString = cursor.block().text()[len(self.promptStr)+1:currentPos]
+		cursor.movePosition(QtGui.QTextCursor.NoMove, QtGui.QTextCursor.MoveAnchor)
+		cursor.movePosition(QtGui.QTextCursor.PreviousCharacter, QtGui.QTextCursor.KeepAnchor, 1)
+		currChar = cursor.selectedText()
 		if currChar != '':
 			ordCurrChar = ord(currChar)
 		else:
 			ordCurrChar = 0
 		delimiterToLeft = (ordCurrChar <= 32) or currChar in opsList
-		lineNumber = self.editorText.PositionToXY(currentPos)[2]
-		posS = self.editorText.XYToPosition (len(self.promptStr), lineNumber)
-		lineString = self.editorText.GetRange (posS, currentPos)
-		#dPY ("==== getWordToLeft: lineString is ", lineString, "delimiterToLeft is ", delimiterToLeft)
+		#dPY ("==== getWordToLeft: lineString is ", lineString, "currChar is ", currChar, lvl=11)
 
 		currentLineStrArray = []
 		currentLineStrWordArray = lineString.split()
+		#dPY ("==== getWordToLeft.A: currentLineStrWordArray is ", currentLineStrWordArray, lvl=11)
 		for clsw in currentLineStrWordArray:
 			for o in opsList:
 				if clsw.find(o) >= 0:
@@ -470,8 +496,10 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 							clsw.find (':write!') == -1 and clsw.find (':save!') == -1:
 						currentLineStrArray += clsw.split(o)
 
+		#dPY ("==== getWordToLeft.B: currentLineStrWordArray is ", currentLineStrWordArray, lvl=11)
 		if currentLineStrArray == []:
 			currentLineStrArray = lineString.split()
+		#dPY ("==== getWordToLeft.B: currentLineStrArray is ", currentLineStrArray, lvl=11)
 		
 		#dPY ("==== getWordToLeft: currentLineStrArray is ", currentLineStrArray)
 		#return last element
@@ -479,18 +507,22 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 		poppedFront = ''
 		if len(currentLineStrArray) > 0:
 			popped = currentLineStrArray.pop()
-			poppedFront = currentLineStrArray.pop()
+			if len(currentLineStrArray) > 0:
+				poppedFront = currentLineStrArray.pop()
 
 		return (poppedFront, popped, delimiterToLeft, currentPos)
 
 	def handleTabExpand (self, cursor):
-		text = cursor.block().text()
-		currentPos = self.editorText.GetInsertionPoint()
-		lineNumber = self.editorText.PositionToXY(currentPos)[2]
-		posS = self.editorText.XYToPosition (len(self.promptStr), lineNumber)
-		lineString = self.editorText.GetRange (posS, currentPos)
+		cursorCol = cursor.columnNumber()
+		lineString = cursor.block().text()[len(self.promptStr)+1:cursor.columnNumber()]
+		#dPY ("==== handleTabExpand: lineString is ", lineString, lvl=11)
 
-		earlierWordToLeft, wordToLeft, delimiterToLeft, currentPos = self.getWordToLeft()
+		#currentPos = self.editorText.GetInsertionPoint()
+		#lineNumber = self.editorText.PositionToXY(currentPos)[2]
+		#posS = self.editorText.XYToPosition (len(self.promptStr), lineNumber)
+		#lineString = self.editorText.GetRange (posS, currentPos)
+
+		earlierWordToLeft, wordToLeft, delimiterToLeft, cursorCol = self.getWordToLeft(cursor)
 		#dPY ("delimiterToLeft is ", delimiterToLeft, "word to left is ", wordToLeft, "earlier word to left is ", earlierWordToLeft)
 
 		if earlierWordToLeft == ":set" or earlierWordToLeft == ":unset":
@@ -521,7 +553,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 					self.expandFontNamesList = self.getShortFontNameList()
 				self.autoExpandContext = 'FONT'
 			else:
-				self.autoExpandContext = 'NONE'
+				self.autoExpandContext = 'NORMAL'
 		else:
 			if earlierWordToLeft == ":r" or earlierWordToLeft == ":exec" or\
 					wordToLeft == ":s!" or earlierWordToLeft == ":w!" or\
@@ -534,7 +566,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 				self.expandFontNamesList = self.getShortFontNameList()
 				self.autoExpandContext = 'SET_UNSET'
 			else:
-				self.autoExpandContext = 'NONE'
+				self.autoExpandContext = 'NORMAL'
 		#endif
 
 		#dPY ("autoExpandContext is == ", self.autoExpandContext)
@@ -585,35 +617,35 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 
 		completionString = ''
 		#dPY ("myList is ", myList)
-		self.editorText.insertPlainText('\n')
+		self.writeInfo ('\n')
 		if len (myList) > 1:
 			i = 0
 			for e in myList:
-				if self.autoExpandContext == 'SET_UNSET':
-					self.setTextColor('setunset')
-				elif self.autoExpandContext == 'FONT':
-					self.setTextColor('font')
-				elif self.autoExpandContext == 'RUN_FILE':
-					self.setTextColor('runfile')
-				else:
-					self.setTextColor('tabexpdefault')
+				self.setTextColor(self.autoExpandContext)
+				#if self.autoExpandContext == 'SET_UNSET':
+				#	self.setTextColor('setunset')
+				#elif self.autoExpandContext == 'FONT':
+				#	self.setTextColor('font')
+				#elif self.autoExpandContext == 'RUN_FILE':
+				#	self.setTextColor('runfile')
+				#else:
+				#	self.setTextColor('tabexpdefault')
 
 				if i % 10 == 9:
-					self.editorText.insertPlainText(e + '\n')
+					self.writeInfo(e + '\n')
 				else:
-					self.editorText.insertPlainText(e + '  ')
+					self.writeInfo(e + '  ')
 				i += 1
 			if i % 10 != 0:
-				self.editorText.insertPlainText('\n')
+				self.writeInfo('\n')
 		elif len(myList) > 0:
 			loneWord = myList[0]
 			completionString = loneWord[len(wordToLeft):] + ' '
 
 		#dPY ("completionString is ", completionString)
 
-		self.setTextColor('normal')
+		self.setTextColor('NORMAL')
 
-		self.currentLineNumber = self.editorText.PositionToXY(self.editorText.GetLastPosition())[2]
 		#dPY ("handleTabExpand ------ at end self.currentLineNumber is ", self.currentLineNumber)
 		self.writePrompt()
 		if lineString != '':
@@ -758,7 +790,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			self.writeInfo (f'Info: parameter \'{vexCmd}\' ({self.metaCmdDescription[vexCmd]}) has been set to {truth}.\n', what=0)
 			return True
 		elif vexCmd == '':
-			self.setTextColor('setunset')
+			self.setTextColor('SET_UNSET')
 			self.editorText.insertPlainText (f" sci  : (For numbers less than 1e24, use scientific notation for display) is {self.VX.sci}.\n")
 			self.editorText.insertPlainText (f" eng  : (For numbers less than 1e15, use engineering notation for display) is {self.VX.eng}.\n")
 			self.editorText.insertPlainText (f" fhp  : (Factorial operator '!' has higher precedence than multiply/divide) is {self.VX.fhhp}.\n")
@@ -786,7 +818,9 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 	def getPromptColor (self, lightTheme=True):
 		return self.promptColorLight
 
-	def writePrompt (self):
+	def writePrompt (self, overrideGlobalDisable=False):
+		if self.globalWriteDisable == True and overrideGlobalDisable == False:
+			return
 		lca = len(self.VX.ca)
 		self.promptStr = '#' + str(lca+1) + '>'
 		
@@ -806,7 +840,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 		if cursor.hasSelection():
 			cursor.clearSelection()
 			cursor.end()
-			self.editorText.SetInsertionPoint(self.editorText.GetLastPosition())
+			self.editorText.moveCursor(QtGui.QTextCursor.End)  #end of line
 
 	def clearLine (self, cursor):
 		cursor.clearSelection()
@@ -819,14 +853,20 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 		cursor.removeSelectedText()
 		self.editorText.setTextCursor(cursor)
 
-	def fontSelect (self, event):
+	def fontSelect (self, event, fromCmdLine=False):
 		dialog = QFontDialog()
 		dialog.setCurrentFont (self.font)
+		#print ("fontSelect: ---- dialog.currentFont().family() = ", dialog.currentFont().family())
+		#print ("fontSelect: ---- dialog.selectedFont().family() = ", dialog.selectedFont().family())
+		#print ("fontSelect: ---- self.font.family() = ", self.font.family())
 		font, ok = dialog.getFont()
 		if ok:
 			self.font = font
 			self.fontName = self.font.family()
 			self.editorText.setFont(self.font)
+			if fromCmdLine == False and self.globalWriteDisable == False:
+				self.editorText.insertPlainText ('\n')
+				self.writePrompt()
 			return True
 		else:
 			return False
@@ -906,14 +946,16 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 		else: #choose first font in list
 			self.fontName = self.fontNameList[0]
 
-		#print ("self.fontName = ", self.fontName)
 		self.font = QFont(self.fontName, 14)
 		self.editorText.setFont (self.font)
+		self.fontName = self.font.family()
+		print ("self.fontName = ", self.fontName)
 		#print ("getMaxLineChars returned ", self.getMaxLineChars())
 
 	def eventFilter(self, obj, event):
 		if event.type() == QtCore.QEvent.KeyPress and obj is self.editorText and self.editorText.hasFocus():
 			key = event.key()
+			self.editorText.ensureCursorVisible()
 			cursor = self.editorText.textCursor()
 			cursorLine = cursor.blockNumber()
 			cursorCol = cursor.columnNumber()
@@ -928,20 +970,23 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 				text = cursor.block().text()
 				#print ("moving to end of last line")
 			if key in (Qt.Key_Enter, Qt.Key_Return):
-				self.autoExpandContext = 'NONE'
+				self.autoExpandContext = 'NORMAL'
 				self.editorText.moveCursor(QtGui.QTextCursor.End)  #end of line
 				self.handleInput (execCmdFromFile=False, cmdFromFile=text[len(self.promptStr)+1:])
 				self.clearSelection()
 				return True #consume the return key
+			elif key == Qt.Key_Tab:
+				self.handleTabExpand(cursor)
+				return True
 			elif key == Qt.Key_Delete:
-				self.autoExpandContext = 'NONE'
+				self.autoExpandContext = 'NORMAL'
 				if cursorCol < len(text) and cursorCol > len(self.promptStr):
 					return False
 				else:
 					self.clearSelection()
 					return True
 			elif key == Qt.Key_Right:
-				self.autoExpandContext = 'NONE'
+				self.autoExpandContext = 'NORMAL'
 				if cursorCol < len(text): 
 					return False
 				else:
@@ -949,14 +994,14 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 					return True
 			elif key == Qt.Key_Tab:
 				self.clearSelection()
-				self.handleTabExpand()
+				self.handleTabExpand(cursor)
 				return True
 			elif key in (Qt.Key_PageUp, Qt.Key_PageDown):
-				self.autoExpandContext = 'NONE'
+				self.autoExpandContext = 'NORMAL'
 				self.clearSelection()
 				return True
 			elif key == Qt.Key_Home:
-				self.autoExpandContext = 'NONE'
+				self.autoExpandContext = 'NORMAL'
 				self.clearSelection()
 				cursor.movePosition(QtGui.QTextCursor.Left, QtGui.QTextCursor.MoveAnchor, len(text) - len(self.promptStr) - 1)
 				self.editorText.setTextCursor(cursor)
@@ -964,7 +1009,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			elif key == Qt.Key_Escape:
 				self.dismissCommand()
 			elif key == Qt.Key_Up:
-				self.autoExpandContext = 'NONE'
+				self.autoExpandContext = 'NORMAL'
 				self.clearSelection()
 				#dPY ("UP:: indexHistory is ", self.indexHistory, lvl=11)
 				#dPY ("UP VX.ca is ", self.VX.ca, lvl=11)
@@ -981,7 +1026,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 				return True
 
 			elif key == Qt.Key_Down:
-				self.autoExpandContext = 'NONE'
+				self.autoExpandContext = 'NORMAL'
 				self.clearSelection()
 				#dPY ("DOWN: indexHistory is ", self.indexHistory, lvl=11)
 				#dPY ("DOWN: VX.ca is ", self.VX.ca, lvl=11)
@@ -1017,42 +1062,21 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 					self.fileSaveAsGUI()
 				elif key == Qt.Key_N:
 					self.VX.ca.append(":cls")
-					self.doClear()
+					self.VX.ra.append('')
+					self.doClearAndWritePrompt()
 				elif key == Qt.Key_Q or key == Qt.Key_Escape:
 					self.fileQuit()	
 		return super().eventFilter(obj, event)
 
 	def dismissCommand (self):
 		self.clearSelection()
-		self.autoExpandContext = 'NONE'
+		self.autoExpandContext = 'NORMAL'
 		cursor = self.editorText.textCursor()
 		text = cursor.block().text()
 		if text != '':
 			self.editorText.moveCursor(QtGui.QTextCursor.End)  #end of line
 			self.inputStr = ''
 			self.doInputCommand()
-
-	def mouseLeftTripleClick (self):
-		self.mouseLeftClickCount = 0
-		mouseLineText = self.editorText.GetLineText(self.mouseClickLineNumber)
-		## hasCmdPrompt = re.compile ('^#\d+>')
-		## hasCmdPromptMatch = hasCmdPrompt.match (mouseLineText)
-		#dPY ("hasCmdPromptMatch is ", hasCmdPromptMatch)
-		hasCmdPromptMatch = mouseLineText.find('#')
-		## if hasCmdPromptMatch != None:
-		if hasCmdPromptMatch == 0:
-			posS = self.editorText.XYToPosition(len(self.promptStr), self.mouseClickLineNumber)
-			#dPY ("hasCmdPromptMatch is true -- posS is", posS)
-		else:
-			posS = self.editorText.XYToPosition(0, self.mouseClickLineNumber)
-		posE = self.editorText.XYToPosition (len(mouseLineText), self.mouseClickLineNumber)
-		self.editorText.SetSelection(posS, posE)
-		#dPY ("triple click!!!")
-		#dPY ("posS is ", posS, "posE is ", posE, "mouse line ", self.mouseClickLineNumber)
-
-	def mouseMotionCallback (self, event=None):
-		if event.LeftIsDown() == True:
-			event.Skip()
 
 	def printVars (self, var=None):
 		prnv = self.VX.prnv (var)
@@ -1065,13 +1089,13 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			self.clearLine(self.editorText.textCursor())
 			self.editorText.insertPlainText (':help')
 
-		self.setTextColor('help')
+		self.setTextColor('HELP')
 
 		for s in HELP.split('\n'):
 			if s != '':
 				self.editorText.insertPlainText (s + '\n')
 
-		self.setTextColor('normal')
+		self.setTextColor('NORMAL')
 
 		if fromCmdLine == False:
 			self.VX.ca.append(":help")
@@ -1083,23 +1107,28 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			self.indexHistory = len(self.VX.ca)
 			self.writePrompt()
 
-	def doClear (self, event=None):
-		self.VX.ra.append('')
-
+	def doClearAndWritePrompt (self, event=None):
+		self.doClear()
+		self.writePrompt(overrideGlobalDisable=False)
+		
+	def doClear (self):
+		cursor = self.editorText.textCursor()
+		cursor.movePosition(QtGui.QTextCursor.End, QtGui.QTextCursor.MoveAnchor)
+		cursor.movePosition(QtGui.QTextCursor.Start, QtGui.QTextCursor.KeepAnchor)
+		cursor.removeSelectedText()
 		self.editorText.moveCursor(QtGui.QTextCursor.End)  #end of line
-
 		self.indexHistory = len(self.VX.ca)
-		#self.writePrompt()
 
 	def bottomCheckBoxHandler (self, event):
-		if self.bottomCheckBoxDEG.isChecked() == True:
+		if self.checkBoxDEG.isChecked() == True:
 			self.VX.degrees(True)
 		else:
 			self.VX.degrees(False)
-		if self.bottomCheckBoxSCI.isChecked() == True:
+		if self.checkBoxSCI.isChecked() == True:
 			self.VX.sci = True
 		else:
 			self.VX.sci = False
+		self.editorText.setFocus()
 
 	def handleInput (self, execCmdFromFile=False, cmdFromFile=''):
 		self.inputStr = cmdFromFile
@@ -1119,20 +1148,23 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 		self.indexHistory = len(self.VX.ca)
 		self.completionEntryList = self.completionEntryListOrig + list(self.VX.stv.keys())
 		self.writePrompt()
-		self.setTextColor('normal')
+		self.setTextColor('NORMAL')
 
 	def handleCommand (self, restOfCmd='', execCmdFromFile=False):
 		#print ("restOfCmd = ", restOfCmd)
 		restOfCmd = restOfCmd.strip()
-		self.editorText.insertPlainText ('\n')
+		#self.editorText.insertPlainText ('\n')
+		self.writeInfo ('\n')
 		if self.inputStr.find(':ls') == 0:
-			self.setTextColor('ls')
-			self.editorText.insertPlainText ('List of variables:\n')
+			self.setTextColor('LS')
+			#self.editorText.insertPlainText ('List of variables:\n')
+			self.writeInfo ('List of variables:\n')
 			result = ''
 			for var in self.VX.stv.keys():
 				if var != 'ans' and var != 'True' and var != 'False':
 					value = self.printVars(var)
-					self.editorText.insertPlainText (value + '\n')
+					#self.editorText.insertPlainText (value + '\n')
+					self.writeInfo (value + '\n')
 					result += value + '\n'
 			self.VX.ra.append(result)
 		elif self.inputStr == "?" or self.inputStr == ":he" or self.inputStr == ":?" or self.inputStr == ":help":
@@ -1140,7 +1172,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			self.showHelp(fromCmdLine=True)
 			self.VX.ra.append('')
 		elif self.inputStr.find(":exit") == 0 or self.inputStr.find(":quit") == 0 or self.inputStr.find(":q") == 0:
-			self.Destroy()
+			self.fileQuit()
 		elif self.inputStr.find(":set") == 0:
 			self.VX.ra.append(f'Info: doing command: {self.inputStr}')
 			self.VXCommandHandler(restOfCmd, True)
@@ -1149,8 +1181,8 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			self.VXCommandHandler(restOfCmd, False)
 		elif self.inputStr.find(':print') == 0 or self.inputStr.find(':pr') == 0:
 			#print something
-			self.editorText.insertPlainText (restOfCmd)
-			self.editorText.insertPlainText ("\n")
+			#self.editorText.insertPlainText (restOfCmd+'\n')
+			self.writeInfo (restOfCmd+'\n')
 			self.VX.ra.append(f"'{restOfCmd}'")
 		elif self.inputStr.find(':p') == 0 or self.inputStr.find(':prec') == 0 or\
 				self.inputStr.find(':precision') == 0:
@@ -1185,18 +1217,21 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			self.VX.delall()
 			self.VX.ra.append('')
 		elif self.inputStr == ":cls" or self.inputStr == ":clear":
+			self.VX.ra.append('')
 			self.doClear()
 		elif self.inputStr == ":reset":
 			self.VX.ca = []
 			self.VX.ra = []
 			self.VX.stv ['ans'] = '0'
+			self.VX.ra.append('')
 			self.doClear()
 		elif self.inputStr == ":history" or self.inputStr == ":his" or self.inputStr == ":h":
 			result = ''
 			lca = len(self.VX.ca)
 			for i in range(lca):
 				s = ' #' + str(i+1) + '\t\t' + self.VX.ca[i] + '\n'
-				self.editorText.insertPlainText (s)
+				#self.editorText.insertPlainText (s)
+				self.writeInfo (s)
 				result += s
 			self.VX.ra.append(result)
 		elif self.inputStr.find(':fs') == 0 or self.inputStr.find(':fsize') == 0:
@@ -1217,7 +1252,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 				else:
 					self.writeError (f'Error: font could not be changed to {restOfCmd}\n')
 			else:
-				fontChanged = self.fontSelect(event=None)
+				fontChanged = self.fontSelect(event=None, fromCmdLine=True)
 		elif self.inputStr.find(':save!') == 0 or self.inputStr.find(':s!') == 0 or\
 				self.inputStr.find(':write!') == 0 or self.inputStr.find(':w!') == 0:
 			fileSaved = self.fileSaveAs(fullFileName=restOfCmd, overwrite=True, fromCmdLine=True)
@@ -1279,12 +1314,15 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			except:
 				#top level exception handler
 				rawValue = ['', '', '', 
-						"Error: Fatal exception, VX will close. Please send VexX.log (if available) to anirbax@gmail.com", 
+						"Error: Fatal exception, VX will close. Please send VX.log (if available) to anirbax@gmail.com", 
 						'']
 				raise VexCoreError
 
+			if self.globalWriteDisable == True:
+				return
+
 			self.editorText.insertPlainText ('\n')
-			#print ("rawValue = ", rawValue, " ~~ len = ", len(rawValue))
+			print ("rawValue = ", rawValue, " ~~ len = ", len(rawValue))
 			## rawValue[0]: '  ans = '
 			## rawValue[1]: mantissa
 			## rawValue[2]: chr(0x2219) + ' 10'
@@ -1304,12 +1342,6 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 					self.writeInfo (rawValue[5] + '\n', what=0) #info
 				else:
 					self.writeInfo (rawValue[5] + '\n', 2) #warning
-
-			#if self.VX.getmp() > 10000:
-			#	self.editorText.insertPlainText (value)
-			#	self.editorText.insertPlainText ('\n')
-
-			## if self.printMaxWidth < 150:
 
 			#dPY("eval result is ", result)
 			if self.VX.getmp() > 10000:
@@ -1429,6 +1461,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 				retVal = False
 			self.indexHistory = len(self.VX.ca)
 		else:
+			fullFileName = os.path.expanduser(fullFileName)
 			if not os.path.isfile(fullFileName):
 				if fromCmdLine == False:
 					msg = QMessageBox()
@@ -1580,9 +1613,9 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			self.editorText.moveCursor(QtGui.QTextCursor.End)  #end of line
 			return False
 
-	def fileQuit(self, event):
-		self.VX.pybfend()
-		self.Destroy()
+	def fileQuit(self, event=None):
+		pybfend()
+		self.close()
 
 	def helpAbout (self,e):
 		# Create a message dialog box
@@ -1611,5 +1644,5 @@ def VXCoreEntryPoint():
 	form = qVX()
 	form.setTitleArgs ("Calculator VX", argTuple)
 	form.show()
-	app.exec_()
+	sys.exit(app.exec_())
 
