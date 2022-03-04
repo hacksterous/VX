@@ -3061,10 +3061,10 @@ class VexMicroPC ():
 				#dPY ("prnv: returning 1 ... value is ", value, lvl=100)
 				return value
 		else:
-			#dPY("6.Z1: value is ", value, " vi = ", vi, lvl=100)
+			#dPY("6.Z1: value is ", value, " vi = ", vi, " base = ", base, lvl=100)
 			s = str(self.dec2xxx(int(value), dec2what=base))
-			#print ("6.ZZ1: -- width = ", width, " -- len(s) = ", len(s), " -- vi = ", vi, " -- self.slz = ", self.slz)
-			if vi == True and (base == 'h' or base == 'b'):
+			#print ("6.ZZ1: -- width = ", width, " -- len(s) = ", len(s), " -- vi = ", vi, " -- self.slz = ", self.slz, " string s = ", s)
+			if vi == True or (base == 'h' or base == 'b'):
 				if width > 0 and self.slz == False:
 					if base == 'h':
 						diff = int(width / 4) - len(s)
@@ -3106,8 +3106,7 @@ class VexMicroPC ():
 			value[0] = '0'
 
 		#print ("vi is ", vi)
-		if vi:
-			#dPY ("prnv: vi is true - value is ", value, lvl=100)
+		if vi or (base == 'h' or base == 'b'):
 			if self.dstd == False or base != 'd' or width != 0:
 				if width > 0:
 					value[0] = str(width) + "'" + base + value[0]

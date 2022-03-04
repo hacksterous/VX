@@ -305,7 +305,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 
 				}
 
-		self.allCommands = ':prec:fs:fsize:del:ls:set:defw:unset:cls:reset:print:help:do:delall:exec:run:history:font:quit:runtime:precision:save:w!:write!:save!'
+		self.allCommands = ':prec:fs:fsize:del:ls:set:defw:unset:cls:reset:print:help:do:delall:exec:run:history:font:quit:runtime:precision:save:w!:write!:save!:exit'
 
 		self.completionEntryListOrig = [
 			'pi',
@@ -331,6 +331,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			':history',
 			':font',
 			':quit',
+			':exit',
 			':runtime',
 			':precision',
 			':save',
@@ -370,6 +371,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			self.doClearAndWritePrompt()
 		else:
 			#when there is no startup script, start with a prompt
+			self.globalWriteDisable = False
 			self.writePrompt(overrideGlobalDisable=False)
 
 		self.menuClear.triggered.connect(self.doClearAndWritePrompt)
@@ -833,7 +835,9 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 		self.editorText.setCurrentFont (self.font)
 		self.editorText.insertPlainText(' ')
 		self.editorText.moveCursor(QtGui.QTextCursor.End)  #end of line
-		
+
+		self.editorText.document().clearUndoRedoStacks()
+
 
 	def clearSelection (self):
 		cursor = self.editorText.textCursor()
@@ -1151,10 +1155,11 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 		self.setTextColor('NORMAL')
 
 	def handleCommand (self, restOfCmd='', execCmdFromFile=False):
-		#print ("restOfCmd = ", restOfCmd)
 		restOfCmd = restOfCmd.strip()
+		#print ("restOfCmd = ", restOfCmd)
 		#self.editorText.insertPlainText ('\n')
 		self.writeInfo ('\n')
+		#print ("inputStr is ", self.inputStr, "find :exit is ", self.inputStr.find(':exit'))
 		if self.inputStr.find(':ls') == 0:
 			self.setTextColor('LS')
 			#self.editorText.insertPlainText ('List of variables:\n')
@@ -1355,7 +1360,8 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			#when doInputCommand is called from a :run command
 			#do not print the prompt again
 			self.postCmdExec()
-		self.editorText.moveCursor(QtGui.QTextCursor.End)  #end of line
+		else:
+			self.editorText.moveCursor(QtGui.QTextCursor.End)  #end of line
 
 	def executeFile (self, fullFileName='', showGuiErr=False):
 		if os.name == 'nt':
