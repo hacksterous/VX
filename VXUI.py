@@ -165,7 +165,7 @@ class Ui_VXCalculator(object):
 
 	def retranslateUi(self, VXCalculator):
 		_translate = QtCore.QCoreApplication.translate
-		VXCalculator.setWindowTitle(_translate("VXCalculator", "VX Calculator"))
+		VXCalculator.setWindowTitle(_translate("VXCalculator", "Calculator"))
 		self.checkBoxDEG.setText(_translate("VXCalculator", "DEG"))
 		self.checkBoxSCI.setText(_translate("VXCalculator", "SCI"))
 		self.fileMenu.setTitle(_translate("VXCalculator", "File"))
