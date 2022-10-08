@@ -275,7 +275,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 		self.textInfoColorLight = '#50a8fa'  #(16, 152, 234)
 		self.textInfoColorDark = 'yellow' #(216, 252, 34)
 		self.textNormalColorLight = 'black' #(0, 0, 0)
-		self.textNormalColorDark = 'white' #(255, 255, 255)
+		self.textNormalColorDark = '#01FF34' #(1, 255, 52) ## (255, 255, 255)
 		self.textErrorColorLight = 'red' #(255, 0, 0)
 		self.textErrorColorDark = '#ff6400' #(255, 100, 0)
 
@@ -465,7 +465,7 @@ class qVX(QtWidgets.QMainWindow, VXUI.Ui_VXCalculator):
 			elif which == 'HELP':
 				self.editorText.setTextColor (QColor('orange'))
 			else: #NORMAL
-				self.editorText.setTextColor (QColor('white'))
+				self.editorText.setTextColor (QColor('#01FF34')) #'green'))
 				#self.editorText.setTextColor (QColor(self.getThemeColors(self.lightTheme)[0]))
 			
 	def writeInfo (self, text, what=3):

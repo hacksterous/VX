@@ -116,7 +116,9 @@ class mpap ():
 	def processArguments (self, Mantissa, Exponent, InternalAware = False):
 		global MPAPERRORFLAG
 
+		print ("processArguments: Mantissa = ", Mantissa)
 		strMantissa = str(Mantissa).strip()
+		print ("processArguments: strMantissa = ", strMantissa)
 		selfExponent = 0
 		lenStrMantissa = 0
 
@@ -187,8 +189,8 @@ class mpap ():
 				strMantissa = '0'
 			lenStrMantissa = len(strMantissa)
 			strMantissa = negative+strMantissa
+			print ("apbf:processArguments - B. strMantissa == ", strMantissa)
 			selfMantissa = int(strMantissa)
-			#print ("apbf:processArguments - B. strMantissa == ", strMantissa)
 		#endif type
 
 		#print ("apbf: processArguments - now returning with selfExponent = ", selfExponent)
@@ -231,9 +233,9 @@ class mpap ():
 
 	def bfwrapper (self, op, other=0):
 		global APBF_LAST_OP_DIGITS_LEN
-		#print ("bfwrapper: calling bf_op with op = ", op, " self.scistr() = ", self.scistr(), "other = ", other, " sci other = ", mpap(other).scistr())
+		print ("bfwrapper: calling bf_op with op = ", op, " self.scistr() = ", self.scistr(), "other = ", other, " sci other = ", mpap(other).scistr())
 		s = pybf.bf_op(APBF_PRECISION, op, self.scistr(), mpap(other).scistr())
-		#print ("pybf.bf_op returned ", s)
+		print ("pybf.bf_op returned ", s)
 		#s = s.split('e')[0]
 		APBF_LAST_OP_DIGITS_LEN = pybf.bf_len()
 		#print ("BF OP returned ", pybf.bf_len(), " significant digits.")
@@ -813,15 +815,16 @@ class mpap ():
 		if(not isinstance(other, mpap)):
 			return self ** mpap(other)
 		
-		#print ("apbf: Called __pow__ with ", self, " -- and -- ", other)
-		if self.IM != 0 or other.IM != 0:
-			return self.pow(other)
-		else:
-			if(other == 0):
-				return mpap(1)
-			else:
+		print ("apbf: Called __pow__ with ", self, " -- and -- ", other)
+#		if self.IM != 0 or other.IM != 0:
+#			return self.pow(other)
+#		else:
+#			if(other == 0):
+#				return mpap(1)
+#			else:
 				#print ("apbf: Calling bfwrapper with ", self, " -- and -- ", other)
-				return self.bfwrapper(PYBF_OP_POW, other)
+#				return self.bfwrapper(PYBF_OP_POW, other)
+		return self.pow(other)
 
 	def sgn(self):
 		return self.Sign
@@ -847,19 +850,23 @@ class mpap ():
 
 		if re != 0:
 			if re > 0:
-				r = re.log()
+				#r = re.log()
+				r = re.bfwrapper(PYBF_OP_LOG)
 				j = mpap(0)
 			else:
 				#log of a negative number = log (-1) * log of the negative of the negative number
 				#log (-1) = pi * i
-				r = (-re).log()
+				#r = (-re).log()
+				r = (-re).bfwrapper(PYBF_OP_LOG)
 				j = mpap(mpap(1).pi())
 
 			imdre = (im/re)
-			r += (imdre*imdre + 1).log()/2
+			#r += (imdre*imdre + 1).log()/2
+			r += (imdre*imdre + 1).bfwrapper(PYBF_OP_LOG)/2
 			j += imdre.atan()
 		else:
-			r = im.log() #if im == 0, log will set MPAPERRORFLAG
+			#r = im.log() #if im == 0, log will set MPAPERRORFLAG
+			r = im.bfwrapper(PYBF_OP_LOG)
 			j = mpap(0.5).pi() * im.sgn()
 		pi = mpap(1).pi()
 		if j > pi:
@@ -872,10 +879,11 @@ class mpap ():
 					InternalAware = True)
 
 	def log (self):
-		if  self.IM != 0 or self.re () < 0:
-			return self.clog()
-		else:
-			return self.bfwrapper(PYBF_OP_LOG)
+		return self.clog()
+		#if  self.IM != 0 or self.re () < 0:
+		#	return self.clog()
+		#else:
+		#	return self.bfwrapper(PYBF_OP_LOG)
 
 	def pi(self):
 		return self.bfwrapper(PYBF_CONST_PI)
@@ -927,14 +935,15 @@ class mpap ():
 		return mpap(r)
 
 	def sqrt (self):
-		if  self.IM != 0:
-			return (self.clog()/2).cexp()
+		return (self.clog()/2).cexp()
+#		if  self.IM != 0:
+#			return (self.clog()/2).cexp()
 
-		if self.Mantissa < 0: #real part is negative -- sqrt will be imqg
-			r = (-self.re()).sqrt()
-			return mpap(Mantissa=0, Exponent=0, IM=r.Mantissa, IE=r.Exponent, InternalAware = True)
-
-		return self.bfwrapper(PYBF_OP_SQRT)
+#		if self.Mantissa < 0: #real part is negative -- sqrt will be imqg
+#			r = (-self.re()).sqrt()
+#			return mpap(Mantissa=0, Exponent=0, IM=r.Mantissa, IE=r.Exponent, InternalAware = True)
+#
+#		return self.bfwrapper(PYBF_OP_SQRT)
 
 	def digits(self):
 		return mpap(len(str(int(self))))
@@ -946,7 +955,8 @@ class mpap ():
 		r = mpap (Mantissa = self.Mantissa, Exponent = self.Exponent, InternalAware = True)
 		j = mpap (Mantissa = self.IM, Exponent = self.IE, InternalAware = True)
 
-		rexp = r.exp()
+		#rexp = r.exp()
+		rexp = r.bfwrapper(PYBF_OP_EXP)
 		r = rexp * j.cos()
 		j = rexp * j.sin()
 
@@ -958,10 +968,11 @@ class mpap ():
 						InternalAware = True)
 
 	def exp (self):
-		if self.IM != 0:
-			return self.cexp()
-		else:
-			return self.bfwrapper(PYBF_OP_EXP)
+		return self.cexp()
+#		if self.IM != 0:
+#			return self.cexp()
+#		else:
+#			return self.bfwrapper(PYBF_OP_EXP)
 
 	def cosh (self):
 		return (self.exp() + (-self).exp())/2

@@ -9,6 +9,12 @@ import time
 from datetime import date
 from primes import *
 
+#future proofing!
+try:
+	sys.set_int_max_str_digits(0)
+except:
+	pass
+
 def zfill (s, w):
 	#print ("ZFILL 1. string is ", s, "width is ", w)
 	if w < 0:
@@ -1292,13 +1298,14 @@ class VexMicroPC ():
 							self.sher ("Error: expected smaller 'downto' index.")
 							return mpap(0), 0, 'd', "#NULLVARIABLENAME#", -1, -1
 						
-						if reDimensionVar == True :
+						if reDimensionVar == True:
 							assw = maxBitPos - minBitPos + 1
 							if assw != self.stw[varName]:
 								self.stw[varName] = assw
 								self.showw ("Warning: updated width of variable " + varName + " to " + str(self.stw[varName]))
 						elif self.twa == True:
 							#not redimensioning
+							## ?? REVIEW CODE FIXME
 							self.stw[varName] = width
 
 						#dPY ("^^^^^^^^^^^^^processVariables: maxBitPos is ", maxBitPos, " ,minBitPos is ", minBitPos, " ,self.stw[varName] is ", self.stw[varName])
@@ -1704,7 +1711,7 @@ class VexMicroPC ():
 
 				if self.look == '=':
 					#inequality operator
-					#found '=='
+					#found '!='
 					self.match('=')
 					value = self.cmpop ('!', value)
 					width = 0
@@ -1763,9 +1770,11 @@ class VexMicroPC ():
 						#either exponent or value is integer
 						base = 'L' #big integer with loss of precision or any fraction
 						#will need to show result as fraction
+					if True:
+						value = mpap(value) ** mpap(exp)
+						print ("B. value is now ", value)
 					try:
-						value = value ** exp
-						#dPY ("B. value is now ", value)
+						print ("")
 					except:
 						print ("Error: type (value)=", type(value), "type(exp)=", type(exp))
 						self.sher ("Error: internal math error for exponentiation or result is too big (> ~1.1878e+4932)")

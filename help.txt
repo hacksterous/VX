@@ -1,0 +1,162 @@
+ :exit, :quit - exits VX.
+ :help, ?, :? - prints this help.
+ :set <command> 
+ :unset <command>
+	where <command> can be
+		sci: For numbers less than 1e24, use scientific notation for display
+		eng: For numbers less than 1e15, use engineering notation for display [M is 1024*1024 = 1048576, etc.]
+		fhp: Factorial operator '!' has higher precedence than multiply/divide.
+		adw: Automatically adjust width when width is unspecified
+		dstd: suppress Verilog 'd for decimal numbers
+		bfa: base is assigned from right-hand side assignment
+		wfa: width of variable is assigned from right-hand side assignment
+		slz: suppress leading zeros
+		showw: show warnings
+		wns: western numeral separator
+		ins: Indian numeral separator
+		vns: Verilog-style underscore digit separator
+		nns: no numerical separator
+	
+ :do <loop times> <multi-cmd> - repeats command that follows <loop times>.
+	 <multi-cmd> have multiple commands separated by ';'s
+ :ls - lists all variables.
+ ans - prints last result.
+ :del - deletes variable or list of variables (separated by comma or space).
+ :delall - deletes all user variables.
+ :cls - clears screen.
+ :clear - clears screen.
+ :reset - clears screen and resets command history.
+ :runtime - prints time take to execute the last command in seconds.
+ :r, :run, :exec, :e <file name> - runs command transcript from file
+ :p, :prec, :precision <integer> -- set decimal precision to <integer>
+ :w, :write, :s, :save - writes out command transcript to file (does not overwrite existing file)
+ :w!, :write!, :s!, :save! - writes out command transcript to file (overwrites existing file)
+ Comment
+ -------
+ The '#' character is used as a comment. Any input following
+ the comment character is ignored.
+ Values
+ ------
+ Widths are specified using Verilog-like syntax
+ that also specify the base of the number. Examples:
+ 8'b101
+ 32'h5a_1234
+ Base Conversion
+ ---------------
+ To hexadecimal:
+ x= 32'd1234 #Assign as decimal
+ x= 32'h(x) #Convert to 32-bit hexadecimal
+ Verilog Catenation
+ ------------------
+ {8{1'b1}} 
+	results in 8'b1111_1111
+ 8{{1'b1}} returns an error.
+	'Error: parser expected end of stream.'
+ {8{1'b10}} 
+ returns 
+	8'b0000_0000
+	Warning: Value 'b 0010  will be truncated to  1  bits.
+ {8{2'b10}}
+ returns
+	16'b1010_1010_1010_1010
+ Assignment
+ ----------
+ Any alphanumeric character and the underscore, not starting with a number
+ can be a variable name. Assignment examples:
+ x = 10
+ _ = 10'b1		#variable _ is 10-bits wide (taken from assignment)
+ zz = 32'hab	#zz is 32-bits wide (taken from assignment)
+ qq:8 = 32'h6	#qq is declared to be of width 8 which will override the assignment
+ qw = {1'd1, {8{1'b1}}} #qw is 9'd511
+ we = {1, {8{1'b1}}}
+ {we:4, wy:5} = {1'b0, {8{1'b1}}} #we  is 4'b111 and wy is 5'b11111
+ Complex numbers
+ ---------------
+	A + [B] means
+	A + im * B where
+	im is the square root of -1.
+	Functions that suppot complex number inputs are:
+		sqrt
+		pow
+		exp
+		log
+		sin
+		cos
+		tan
+		sinh
+		cosh
+		tanh
+		asin
+		acos
+		atan
+ Modular Arithmetic
+ ------------------
+	Modular exponentiation example
+		r = random(256) #r is a 2048-bit random number
+		M = nxp(r) #next prime number
+		power = 100000
+		3**%[M] power  #3 to the power of 'power' modulus M
+		3**%[nxpa](nxpa-1) # equals 1 -- Fermat's Little Theorem
+		nnxpa = nxp(nxpa)
+		3**%[nnxpa](nnxpa-1) #equals 1 for any prime nnxpa
+	Modular inverse example
+		r = random(256) #r is a 256-byte (2048-bit) random number
+		M = nxp(r) #next prime number
+		value = 100000
+		1/%[M] value  #inverse of 'value' modulus M
+		5/%[M] value  #inverse of 'value' modulus M multiplied by 5, and the product modulus M
+ Exponent shorthands -
+		'f' - multiplier of 1e-15
+		'p' - multiplier of 1e-12
+		'n' - multiplier of 1e-9
+		'u' - multiplier of 1e-6
+		'm' - multiplier of 1e-3
+		'k' - 1 thousand, multiplier of 1,000
+		'mi' - 1 million, multiplier of 1,000,000
+		'B', 'bi' - 1 billion, multiplier of 1,000,000,000
+		'l, 'L' - 1 lakh, multiplier of 1,00,000
+		'c, 'C' - 1 crore, multiplier of 100,00,000
+		'K' - 1 kilo, multiplier of 1024
+		'M' - 1 mega, multiplier of 1048576
+		'G' - 1 giga, multiplier of 1073741824
+		'T' - 1 tera, multiplier of 1099511627776
+Parsing is left-to-right, with 
+		A + B + C + D 
+being equivalent to 
+		A + (B + (C + D))
+and
+	ans ++ 1
+is equivalent to
+	ans + (+1)
+Also,
+	ans --- 1
+is equivalent to
+	ans -(-(-1))
+Examples:
+#1>	111[19:0] * 3 * x[9:0] = 1 
+is equivalent to 
+#1>	111[19:0] * 3 * (x[9:0] = 1)
+the assignment operation within parentheses returns
+a value of 1, the width of variable 'x' having been
+updated to 10 and 'x' assigned a value of 1.
+The expression is equivalent to these two commands:
+#1>	x[9:0] = 1
+#2>	111 * 3 * 1
+Comparison:
+#> 2.99 > 2.999
+returns
+	False
+False has a value of 0 in numerical expressions and True
+has a value of 1.
+#> 2.99 > 2.999+1
+is same as
+#> 2.99 > (2.999+1)
+and returns
+	False
+#> (2.99 > 2.999)+1
+gives
+	1
+Slicing numbers into bit vectors:
+#> ((int(pi)*'h11)[3:0])[1:0]
+gives
+	3 

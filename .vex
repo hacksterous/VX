@@ -10,6 +10,7 @@ i2cm = 2.539876
 cm2i = 1/i2cm
 hp2kw = 1/kw2hp
 ##:reset
-setzone (5.5, 12.9716, 77.5946)
+setzone (5.5, 12.9716, 77.5946) #Bangalore
+#setzone (5.5, 22.5726, 88.3639) #Kolkata
 :prec 15
 #:set sci
