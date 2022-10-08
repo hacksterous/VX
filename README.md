@@ -12,5 +12,5 @@ VX was developed on GNU/Linux on an amd64 machine. A shared library for Python3-
 ###### Install PyQt5
 `#> sudo pip3 install pyqt5`
 
-###### Install PyQt5
+###### run VX
 `#> cd VX; python3 VX.py`
